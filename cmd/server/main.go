@@ -6,19 +6,13 @@ import (
 	"net/http"
 )
 
-type Application struct {
-	Addr string
-}
-
 func main() {
 
 	addr := flag.String("addr", "", "HTTP network address")
 
 	flag.Parse()
 
-	app := &Application{
-		Addr: *addr,
-	}
+	app := NewApplication(*addr)
 
 	server := http.Server{
 		Addr:    app.Addr,
@@ -31,4 +25,5 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 }
