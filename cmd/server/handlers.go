@@ -7,7 +7,7 @@ import (
 )
 
 func (app *Application) health(writer http.ResponseWriter, request *http.Request) {
-	writer.Write([]byte("OK"))
+	app.replyJson(writer, http.StatusOK, "{\"message\": \"OK\"}")
 }
 
 func (app *Application) register(writer http.ResponseWriter, request *http.Request) {
@@ -18,7 +18,18 @@ func (app *Application) register(writer http.ResponseWriter, request *http.Reque
 	}
 
 	json.NewDecoder(request.Body).Decode(&userRegisterForm)
+
 	// Register logic
+	// TODO: Be careful with empty string
+	id, err := app.repo.CreateUser(userRegisterForm.Username, userRegisterForm.Email, userRegisterForm.Password)
+	if err != nil {
+		app.logger.Error(err.Error())
+		app.replyJson(writer, http.StatusInternalServerError, `{"error":"server error in creating user"}`)
+		return
+	}
+
+	app.logger.Info(fmt.Sprintf("Created username: %s with id: %d", userRegisterForm.Username, id))
+
 	app.replyJson(writer, http.StatusOK, userRegisterForm)
 }
 

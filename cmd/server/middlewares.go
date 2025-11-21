@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (app *Application) RequestLogger(next http.Handler) http.Handler {
+func (app *Application) requestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 
 		msg := fmt.Sprintf("%s - %s %s %s", request.RemoteAddr, request.Proto, request.Method, request.URL.RequestURI())
@@ -14,7 +14,7 @@ func (app *Application) RequestLogger(next http.Handler) http.Handler {
 	})
 }
 
-func (app *Application) RecoverPanic(next http.Handler) http.Handler {
+func (app *Application) recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {

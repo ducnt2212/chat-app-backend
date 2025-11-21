@@ -9,7 +9,7 @@ import (
 func (app *Application) routes() http.Handler {
 	mux := http.NewServeMux()
 
-	middlewares := middleware.NewChain(app.RecoverPanic, app.RequestLogger)
+	middlewares := middleware.NewChain(app.recoverPanic, app.requestLogger)
 
 	mux.Handle("GET /", middlewares.ThenFunc(app.health))
 	mux.Handle("POST /auth/register", middlewares.ThenFunc(app.register))
