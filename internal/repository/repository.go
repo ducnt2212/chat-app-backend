@@ -7,8 +7,8 @@ import (
 )
 
 type IRepository interface {
-	CreateUser(username, email, hashedPassword string) (int, error)
-	GetUserByUsername(username string) (models.User, error)
+	CreateUser(user models.User) (int, error)
+	GetUserByEmail(email string) (models.User, error)
 	CreateMessage(senderId int, receiverId int, content string) error
 	GetMessagesBetweenUsers(userAId, userBId int) ([]models.Message, error)
 }

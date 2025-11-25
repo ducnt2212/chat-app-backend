@@ -1,3 +1,5 @@
 Makefile
 
 .env
+
+.DS_Store

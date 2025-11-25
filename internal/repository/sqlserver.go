@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/ducnt2212/chat-app-backend/internal/models"
 	_ "github.com/microsoft/go-mssqldb"
@@ -20,7 +21,7 @@ func NewSQLServerDB(connString string) (*Repository, error) {
 	return &Repository{DB: db}, nil
 }
 
-func (repo *Repository) CreateUser(username, email, hashedPassword string) (int, error) {
+func (repo *Repository) CreateUser(user models.User) (int, error) {
 	stmt, err := repo.DB.Prepare(`
 	INSERT INTO users (username, email, hashed_password)
 	VALUES (@username, @email, @hashed_password);
@@ -29,8 +30,9 @@ func (repo *Repository) CreateUser(username, email, hashedPassword string) (int,
 		return -1, err
 	}
 	defer stmt.Close()
+	fmt.Println(user)
 
-	result := stmt.QueryRow(sql.Named("username", username), sql.Named("email", email), sql.Named("hashed_password", hashedPassword))
+	result := stmt.QueryRow(sql.Named("username", user.Username), sql.Named("email", user.Email), sql.Named("hashed_password", user.HashedPassword))
 
 	var id int
 	err = result.Scan(&id)
@@ -41,15 +43,15 @@ func (repo *Repository) CreateUser(username, email, hashedPassword string) (int,
 	return id, nil
 }
 
-func (repo *Repository) GetUserByUsername(username string) (models.User, error) {
+func (repo *Repository) GetUserByEmail(email string) (models.User, error) {
 	stmt, err := repo.DB.Prepare(`SELECT id, username, email, hashed_password, created_at FROM users WHERE
-	username = @username`)
+	email = @email`)
 	if err != nil {
 		return models.User{}, err
 	}
 	defer stmt.Close()
 
-	result := stmt.QueryRow(sql.Named("username", username))
+	result := stmt.QueryRow(sql.Named("email", email))
 
 	user := models.User{}
 	err = result.Scan(&user.ID, &user.Username, &user.Email, &user.HashedPassword)

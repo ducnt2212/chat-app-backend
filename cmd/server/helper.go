@@ -10,3 +10,7 @@ func (app *Application) replyJson(writer http.ResponseWriter, status int, payloa
 	writer.WriteHeader(status)
 	json.NewEncoder(writer).Encode(payload)
 }
+
+func (app *Application) replyError(writer http.ResponseWriter, status int, payload string) {
+	http.Error(writer, payload, status)
+}

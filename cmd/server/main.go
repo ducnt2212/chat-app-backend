@@ -37,7 +37,7 @@ func main() {
 		Handler: app.routes(),
 	}
 
-	fmt.Printf("Server is starting on %s\n", app.Addr)
+	app.logger.Info(fmt.Sprintf("Server is starting on %s\n", app.Addr))
 
 	err = server.ListenAndServe()
 	if err != nil {
