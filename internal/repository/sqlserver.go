@@ -44,8 +44,9 @@ func (repo *Repository) CreateUser(user models.User) (int, error) {
 }
 
 func (repo *Repository) GetUserByEmail(email string) (models.User, error) {
-	stmt, err := repo.DB.Prepare(`SELECT id, username, email, hashed_password, created_at FROM users WHERE
-	email = @email`)
+	stmt, err := repo.DB.Prepare(`SELECT id, username, email, hashed_password
+	FROM users
+	WHERE email = @email`)
 	if err != nil {
 		return models.User{}, err
 	}

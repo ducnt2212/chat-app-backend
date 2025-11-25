@@ -22,14 +22,14 @@ func (app *Application) register(writer http.ResponseWriter, request *http.Reque
 	}
 
 	if err := json.NewDecoder(request.Body).Decode(&registerForm); err != nil {
-		app.replyError(writer, http.StatusBadRequest, "Invalid Request")
+		app.replyJsonError(writer, http.StatusBadRequest, "Invalid Request")
 		return
 	}
 
 	hashedPassword, err := helper.HashPassword(registerForm.Password)
 	if err != nil {
 		app.logger.Error(err.Error())
-		app.replyError(writer, http.StatusInternalServerError, "Internal Server Error")
+		app.replyJsonError(writer, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
@@ -42,13 +42,16 @@ func (app *Application) register(writer http.ResponseWriter, request *http.Reque
 	id, err := app.repo.CreateUser(user)
 	if err != nil {
 		app.logger.Error(err.Error())
-		app.replyJson(writer, http.StatusInternalServerError, `{"error":"server error in creating user"}`)
+		app.replyJsonError(writer, http.StatusInternalServerError, "Server error in creating user")
 		return
 	}
 
 	app.logger.Info(fmt.Sprintf("Created username: %s with id: %d", registerForm.Username, id))
 
-	app.replyJson(writer, http.StatusCreated, []byte("User created successfully"))
+	response := map[string]string{
+		"msg": "User created successfully",
+	}
+	app.replyJson(writer, http.StatusCreated, response)
 }
 
 func (app *Application) login(writer http.ResponseWriter, request *http.Request) {
@@ -58,25 +61,25 @@ func (app *Application) login(writer http.ResponseWriter, request *http.Request)
 	}
 
 	if err := json.NewDecoder(request.Body).Decode(&loginForm); err != nil {
-		app.replyError(writer, http.StatusBadRequest, "Invalid Request")
+		app.replyJsonError(writer, http.StatusBadRequest, "Invalid Request")
 		return
 	}
 
 	user, err := app.repo.GetUserByEmail(loginForm.Email)
 	if err != nil {
-		app.replyError(writer, http.StatusUnauthorized, "Invalid email or password")
+		app.replyJsonError(writer, http.StatusUnauthorized, "Invalid email or password")
 		return
 	}
 
 	if !helper.IsCorrectPassword(string(user.HashedPassword), loginForm.Password) {
-		app.replyError(writer, http.StatusUnauthorized, "Invalid email or password")
+		app.replyJsonError(writer, http.StatusUnauthorized, "Invalid email or password")
 		return
 	}
 
-	token, err := helper.GenerateJWT(user.ID, os.Getenv("JWT_SECRET"))
+	token, err := helper.GenerateJwt(user.ID, os.Getenv("JWT_SECRET"))
 	if err != nil {
 		app.logger.Error(err.Error())
-		app.replyError(writer, http.StatusInternalServerError, "Internal Server Error")
+		app.replyJsonError(writer, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 

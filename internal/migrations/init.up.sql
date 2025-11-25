@@ -6,7 +6,7 @@ CREATE TABLE users
 (
     id INT PRIMARY KEY IDENTITY(1, 1),
     username VARCHAR(50) NOT NULL,
-    email VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(50) NOT NULL UNIQUE,
     hashed_password VARCHAR(MAX) NOT NULL,
     create_at DATETIME DEFAULT GETUTCDATE(),
 );
