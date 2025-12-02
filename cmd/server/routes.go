@@ -17,7 +17,10 @@ func (app *Application) routes() http.Handler {
 
 	authMiddlewares := middlewares.Append(app.authChecker)
 
-	mux.Handle("GET /rooms", authMiddlewares.ThenFunc(app.health))
+	mux.Handle("GET /rooms", authMiddlewares.ThenFunc(app.listRooms))
+	mux.Handle("POST /rooms", authMiddlewares.ThenFunc(app.createRoom))
+	mux.Handle("GET /rooms/{roomID}/messages", authMiddlewares.ThenFunc(app.getMessages))
+	mux.Handle("POST /rooms/{roomID}/messages", authMiddlewares.ThenFunc(app.sendMessage))
 
 	return mux
 }

@@ -2,7 +2,7 @@ package repository
 
 import (
 	"database/sql"
-	"fmt"
+	"time"
 
 	"github.com/ducnt2212/chat-app-backend/internal/models"
 	_ "github.com/microsoft/go-mssqldb"
@@ -30,7 +30,6 @@ func (repo *Repository) CreateUser(user models.User) (int, error) {
 		return -1, err
 	}
 	defer stmt.Close()
-	fmt.Println(user)
 
 	result := stmt.QueryRow(sql.Named("username", user.Username), sql.Named("email", user.Email), sql.Named("hashed_password", user.HashedPassword))
 
@@ -63,14 +62,14 @@ func (repo *Repository) GetUserByEmail(email string) (models.User, error) {
 	return user, nil
 }
 
-func (repo *Repository) CreateMessage(senderId int, receiverId int, content string) error {
-	stmt, err := repo.DB.Prepare(`INSERT INTO messages (sender_id, receiver_id, content) VALUES (@sender_id, @receiver_id, @content)`)
+func (repo *Repository) CreateMessage(message models.Message) error {
+	stmt, err := repo.DB.Prepare(`INSERT INTO messages (room_id, sender_id, content) VALUES (@room_id, @sender_id, @content)`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(sql.Named("@sender_id", senderId), sql.Named("@receiver_id", receiverId), sql.Named("@content", content))
+	_, err = stmt.Exec(sql.Named("room_id", message.RoomID), sql.Named("sender_id", message.SenderID), sql.Named("content", message.Content))
 	if err != nil {
 		return err
 	}
@@ -78,32 +77,95 @@ func (repo *Repository) CreateMessage(senderId int, receiverId int, content stri
 	return nil
 }
 
-func (repo *Repository) GetMessagesBetweenUsers(userAId, userBId int) ([]models.Message, error) {
-	stmt, err := repo.DB.Prepare(`SELECT id, sender_id, receiver_id, content, created_at
-	FROM messages
-	WHERE (sender_id = @userAId AND receiver_id = @userBId)
-	OR (sender_id = @userBId AND receiver_id = @userAId)`)
+func (repo *Repository) ListMessagesByRoom(roomID, limit int, cursor string) ([]models.Message, string, error) {
+	var stmt *sql.Stmt
+	var err error
+	var nextCursor string = ""
+
+	if cursor == "" {
+		stmt, err = repo.DB.Prepare(`SELECT TOP (@limit) *
+		FROM messages
+		WHERE room_id = @room_id
+		ORDER BY created_at DESC`)
+	} else {
+		stmt, err = repo.DB.Prepare(`SELECT TOP (@limit) *
+		FROM messages
+		WHERE room_id = @room_id AND created_at < @cursor
+		ORDER BY created_at DESC`)
+	}
+
 	if err != nil {
-		return nil, err
+		return nil, nextCursor, err
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Query(sql.Named("@userAId", userAId), sql.Named("@userBId", userBId))
+	result, err := stmt.Query(sql.Named("room_id", roomID), sql.Named("limit", limit), sql.Named("cursor", cursor))
 	if err != nil {
-		return nil, err
+		return nil, nextCursor, err
 	}
 	defer result.Close()
 
 	messages := []models.Message{}
 	for result.Next() {
 		message := models.Message{}
-		err := result.Scan(&message.ID, &message.SenderID, &message.ReceiverID, &message.Content, &message.CreatedAt)
+		err := result.Scan(&message.ID, &message.RoomID, &message.SenderID, &message.Content, &message.CreatedAt)
 		if err != nil {
-			return nil, err
+			return nil, nextCursor, err
 		}
 
 		messages = append(messages, message)
 	}
 
-	return messages, nil
+	if len(messages) > 0 {
+		nextCursor = messages[len(messages)-1].CreatedAt.Format(time.RFC3339Nano)
+	}
+
+	return messages, nextCursor, nil
+}
+
+func (repo *Repository) CreateRoom(room models.Room) error {
+	stmt, err := repo.DB.Prepare(`INSERT INTO rooms (name, is_private, created_by) VALUES (@name, @is_private, @created_by)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Query(sql.Named("name", room.Name), sql.Named("is_private", room.IsPrivate), sql.Named("created_by", room.CreatedBy))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repo *Repository) ListRooms() ([]models.Room, error) {
+	stmt, err := repo.DB.Prepare(`SELECT id, name, is_private, created_by, created_at
+	FROM rooms
+	WHERE is_private = 0
+	ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Query()
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var rooms []models.Room
+	for result.Next() {
+		room := models.Room{}
+		err = result.Scan(&room.ID, &room.Name, &room.IsPrivate, &room.CreatedBy, &room.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		rooms = append(rooms, room)
+	}
+
+	return rooms, nil
 }

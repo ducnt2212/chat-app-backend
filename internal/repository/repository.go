@@ -9,8 +9,10 @@ import (
 type IRepository interface {
 	CreateUser(user models.User) (int, error)
 	GetUserByEmail(email string) (models.User, error)
-	CreateMessage(senderId int, receiverId int, content string) error
-	GetMessagesBetweenUsers(userAId, userBId int) ([]models.Message, error)
+	CreateMessage(message models.Message) error
+	ListMessagesByRoom(roomID, limit int, cursor string) ([]models.Message, string, error)
+	CreateRoom(room models.Room) error
+	ListRooms() ([]models.Room, error)
 }
 
 type Repository struct {
