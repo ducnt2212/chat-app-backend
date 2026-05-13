@@ -14,9 +14,9 @@ import (
 
 func (app *Application) health(writer http.ResponseWriter, request *http.Request) {
 	response := map[string]string{
-		"resposne": "OK",
+		"response": "OK",
 	}
-	app.replyJson(writer, http.StatusOK, response)
+	helper.ReplyJSON(writer, http.StatusOK, response)
 }
 
 func (app *Application) register(writer http.ResponseWriter, request *http.Request) {
@@ -27,14 +27,14 @@ func (app *Application) register(writer http.ResponseWriter, request *http.Reque
 	}
 
 	if err := json.NewDecoder(request.Body).Decode(&registerForm); err != nil {
-		app.replyJsonError(writer, http.StatusBadRequest, "Invalid Request")
+		helper.ReplyJSONError(writer, http.StatusBadRequest, "Invalid Request")
 		return
 	}
 
 	hashedPassword, err := helper.HashPassword(registerForm.Password)
 	if err != nil {
 		app.logger.Error(err.Error())
-		app.replyJsonError(writer, http.StatusInternalServerError, "Internal Server Error")
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
@@ -47,7 +47,7 @@ func (app *Application) register(writer http.ResponseWriter, request *http.Reque
 	id, err := app.repo.CreateUser(user)
 	if err != nil {
 		app.logger.Error(err.Error())
-		app.replyJsonError(writer, http.StatusInternalServerError, "Server error in creating user")
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in creating user")
 		return
 	}
 
@@ -56,7 +56,7 @@ func (app *Application) register(writer http.ResponseWriter, request *http.Reque
 	response := map[string]string{
 		"msg": "User created successfully",
 	}
-	app.replyJson(writer, http.StatusCreated, response)
+	helper.ReplyJSON(writer, http.StatusCreated, response)
 }
 
 func (app *Application) login(writer http.ResponseWriter, request *http.Request) {
@@ -66,32 +66,32 @@ func (app *Application) login(writer http.ResponseWriter, request *http.Request)
 	}
 
 	if err := json.NewDecoder(request.Body).Decode(&loginForm); err != nil {
-		app.replyJsonError(writer, http.StatusBadRequest, "Invalid Request")
+		helper.ReplyJSONError(writer, http.StatusBadRequest, "Invalid Request")
 		return
 	}
 
 	user, err := app.repo.GetUserByEmail(loginForm.Email)
 	if err != nil {
-		app.replyJsonError(writer, http.StatusUnauthorized, "Invalid email or password")
+		helper.ReplyJSONError(writer, http.StatusUnauthorized, "Invalid email or password")
 		return
 	}
 
 	if !helper.IsCorrectPassword(string(user.HashedPassword), loginForm.Password) {
-		app.replyJsonError(writer, http.StatusUnauthorized, "Invalid email or password")
+		helper.ReplyJSONError(writer, http.StatusUnauthorized, "Invalid email or password")
 		return
 	}
 
 	token, err := helper.GenerateJwt(user.ID, os.Getenv("JWT_SECRET"))
 	if err != nil {
 		app.logger.Error(err.Error())
-		app.replyJsonError(writer, http.StatusInternalServerError, "Internal Server Error")
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
 	response := map[string]string{
 		"token": token,
 	}
-	app.replyJson(writer, http.StatusOK, response)
+	helper.ReplyJSON(writer, http.StatusOK, response)
 }
 
 func (app *Application) createRoom(writer http.ResponseWriter, request *http.Request) {
@@ -100,12 +100,12 @@ func (app *Application) createRoom(writer http.ResponseWriter, request *http.Req
 	}
 
 	if err := json.NewDecoder(request.Body).Decode(&createRoomForm); err != nil {
-		app.replyJsonError(writer, http.StatusBadRequest, "Inavalid Request")
+		helper.ReplyJSONError(writer, http.StatusBadRequest, "Invalid Request")
 		return
 	}
 
 	if createRoomForm.Name == "" {
-		app.replyJsonError(writer, http.StatusBadRequest, "Room name is required")
+		helper.ReplyJSONError(writer, http.StatusBadRequest, "Room name is required")
 		return
 	}
 
@@ -120,34 +120,34 @@ func (app *Application) createRoom(writer http.ResponseWriter, request *http.Req
 	err := app.repo.CreateRoom(room)
 	if err != nil {
 		app.logger.Error(err.Error())
-		app.replyJsonError(writer, http.StatusInternalServerError, "Server error in creating room")
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in creating room")
 		return
 	}
 
 	response := map[string]string{
 		"msg": "Room created successfully",
 	}
-	app.replyJson(writer, http.StatusCreated, response)
+	helper.ReplyJSON(writer, http.StatusCreated, response)
 }
 
 func (app *Application) listRooms(writer http.ResponseWriter, request *http.Request) {
 	rooms, err := app.repo.ListRooms()
 	if err != nil {
 		app.logger.Error(err.Error())
-		app.replyJsonError(writer, http.StatusInternalServerError, "Server error in listing rooms")
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in listing rooms")
 		return
 	}
 
-	response := map[string]any{
+	response := map[string][]models.Room{
 		"rooms": rooms,
 	}
-	app.replyJson(writer, http.StatusOK, response)
+	helper.ReplyJSON(writer, http.StatusOK, response)
 }
 
 func (app *Application) sendMessage(writer http.ResponseWriter, request *http.Request) {
 	roomID, err := strconv.Atoi(request.PathValue("roomID"))
 	if err != nil {
-		app.replyJsonError(writer, http.StatusNotFound, "Not Found")
+		helper.ReplyJSONError(writer, http.StatusBadRequest, "Not Found")
 		return
 	}
 	userID := request.Context().Value("user_id").(int)
@@ -157,12 +157,12 @@ func (app *Application) sendMessage(writer http.ResponseWriter, request *http.Re
 	}
 
 	if err := json.NewDecoder(request.Body).Decode(&sendMessageForm); err != nil {
-		app.replyJsonError(writer, http.StatusBadRequest, "Invalid Request")
+		helper.ReplyJSONError(writer, http.StatusBadRequest, "Invalid Request")
 		return
 	}
 
 	if sendMessageForm.Content == "" {
-		app.replyJsonError(writer, http.StatusBadRequest, "Content is required")
+		helper.ReplyJSONError(writer, http.StatusBadRequest, "Content is required")
 		return
 	}
 
@@ -172,21 +172,21 @@ func (app *Application) sendMessage(writer http.ResponseWriter, request *http.Re
 		Content:  sendMessageForm.Content,
 	}
 
-	err = app.repo.CreateMessage(msg)
+	_, err = app.repo.CreateMessage(msg)
 	if err != nil {
 		app.logger.Error(err.Error())
-		app.replyJsonError(writer, http.StatusInternalServerError, "Server error in sending message")
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in sending message")
 		return
 	}
 
 	resposne := map[string]string{"msg": "Sent message successfully"}
-	app.replyJson(writer, http.StatusCreated, resposne)
+	helper.ReplyJSON(writer, http.StatusCreated, resposne)
 }
 
 func (app *Application) getMessages(writer http.ResponseWriter, request *http.Request) {
 	roomID, err := strconv.Atoi(request.PathValue("roomID"))
 	if err != nil {
-		app.replyJsonError(writer, http.StatusBadRequest, "Not Found")
+		helper.ReplyJSONError(writer, http.StatusBadRequest, "Not Found")
 		return
 	}
 
@@ -199,7 +199,7 @@ func (app *Application) getMessages(writer http.ResponseWriter, request *http.Re
 	} else {
 		limit, err = strconv.Atoi(limitParam)
 		if err != nil {
-			app.replyJsonError(writer, http.StatusBadRequest, "Invalid Limit parameter")
+			helper.ReplyJSONError(writer, http.StatusBadRequest, "Invalid Limit parameter")
 			return
 		}
 	}
@@ -209,7 +209,7 @@ func (app *Application) getMessages(writer http.ResponseWriter, request *http.Re
 
 		_, err = time.Parse(time.RFC3339Nano, cursorParam)
 		if err != nil {
-			app.replyJsonError(writer, http.StatusBadRequest, "Invalid Cursor parameter")
+			helper.ReplyJSONError(writer, http.StatusBadRequest, "Invalid Cursor parameter")
 			return
 		}
 	}
@@ -217,7 +217,7 @@ func (app *Application) getMessages(writer http.ResponseWriter, request *http.Re
 	messages, nextCursor, err := app.repo.ListMessagesByRoom(roomID, limit, cursorParam)
 	if err != nil {
 		app.logger.Error(err.Error())
-		app.replyJsonError(writer, http.StatusInternalServerError, "Server error in getting messages")
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in getting messages")
 		return
 	}
 
@@ -225,5 +225,11 @@ func (app *Application) getMessages(writer http.ResponseWriter, request *http.Re
 		"messages":    messages,
 		"next_cursor": nextCursor,
 	}
-	app.replyJson(writer, http.StatusOK, response)
+	helper.ReplyJSON(writer, http.StatusOK, response)
+}
+
+func (app *Application) serveWS(writer http.ResponseWriter, request *http.Request) {
+	userID, _ := request.Context().Value("user_id").(int)
+
+	app.wsHandler.ServeWS(writer, request, userID)
 }

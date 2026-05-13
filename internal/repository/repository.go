@@ -9,7 +9,7 @@ import (
 type IRepository interface {
 	CreateUser(user models.User) (int, error)
 	GetUserByEmail(email string) (models.User, error)
-	CreateMessage(message models.Message) error
+	CreateMessage(message models.Message) (models.Message, error)
 	ListMessagesByRoom(roomID, limit int, cursor string) ([]models.Message, string, error)
 	CreateRoom(room models.Room) error
 	ListRooms() ([]models.Room, error)

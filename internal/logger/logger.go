@@ -57,7 +57,6 @@ func (logger *Logger) Error(msg string) {
 		if ok {
 			logger.errorLogger.Printf("%s:%d: %s", file, line, msg)
 		} else {
-
 			logger.errorLogger.Println(msg)
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/ducnt2212/chat-app-backend/internal/repository"
+	"github.com/ducnt2212/chat-app-backend/internal/websocket"
 	"github.com/joho/godotenv"
 )
 
@@ -27,7 +28,9 @@ func main() {
 		panic(err)
 	}
 
-	app, err := NewApplication(*addr, repo)
+	hub := websocket.NewHub()
+
+	app, err := NewApplication(*addr, repo, hub)
 	if err != nil {
 		panic(err)
 	}

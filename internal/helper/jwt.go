@@ -2,7 +2,6 @@ package helper
 
 import (
 	"errors"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -24,9 +23,9 @@ func GenerateJwt(userID int, secret string) (string, error) {
 	return token.SignedString([]byte(secret))
 }
 
-func VerifyJwt(tokenStr string) (jwt.MapClaims, error) {
+func VerifyJwt(tokenStr string, secret string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (any, error) {
-		return []byte(os.Getenv("JWT_SECRET")), nil
+		return []byte(secret), nil
 	})
 	if err != nil {
 		return nil, err

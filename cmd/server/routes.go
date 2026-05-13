@@ -22,5 +22,7 @@ func (app *Application) routes() http.Handler {
 	mux.Handle("GET /rooms/{roomID}/messages", authMiddlewares.ThenFunc(app.getMessages))
 	mux.Handle("POST /rooms/{roomID}/messages", authMiddlewares.ThenFunc(app.sendMessage))
 
+	mux.Handle("GET /ws/rooms/{roomID}", authMiddlewares.ThenFunc(app.serveWS))
+
 	return mux
 }

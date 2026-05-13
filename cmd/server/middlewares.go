@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"strings"
 
@@ -37,27 +38,27 @@ func (app *Application) authChecker(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		authHeader := request.Header.Get("Authorization")
 		if authHeader == "" {
-			app.replyJsonError(writer, http.StatusUnauthorized, "Missing Authorization header")
+			helper.ReplyJSONError(writer, http.StatusUnauthorized, "Missing Authorization header")
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			app.replyJsonError(writer, http.StatusUnauthorized, "Invalid Authorization header format")
+			helper.ReplyJSONError(writer, http.StatusUnauthorized, "Invalid Authorization header format")
 			return
 		}
 
 		tokenStr := parts[1]
-		claims, err := helper.VerifyJwt(tokenStr)
+		claims, err := helper.VerifyJwt(tokenStr, os.Getenv("JWT_SECRET"))
 		if err != nil {
 			switch err {
 			case helper.ErrInvalidToken:
-				app.replyJsonError(writer, http.StatusUnauthorized, "Invalid token")
+				helper.ReplyJSONError(writer, http.StatusUnauthorized, "Invalid token")
 			case helper.ErrInvalidTokenClaims:
-				app.replyJsonError(writer, http.StatusUnauthorized, "Invalid Token claims")
+				helper.ReplyJSONError(writer, http.StatusUnauthorized, "Invalid Token claims")
 			default:
 				app.logger.Error(err.Error())
-				app.replyJsonError(writer, http.StatusInternalServerError, "Internal Server Error")
+				helper.ReplyJSONError(writer, http.StatusInternalServerError, "Internal Server Error")
 			}
 			return
 		}

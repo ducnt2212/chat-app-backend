@@ -62,19 +62,35 @@ func (repo *Repository) GetUserByEmail(email string) (models.User, error) {
 	return user, nil
 }
 
-func (repo *Repository) CreateMessage(message models.Message) error {
-	stmt, err := repo.DB.Prepare(`INSERT INTO messages (room_id, sender_id, content) VALUES (@room_id, @sender_id, @content)`)
+func (repo *Repository) CreateMessage(message models.Message) (models.Message, error) {
+	stmt, err := repo.DB.Prepare(`INSERT INTO messages (room_id, sender_id, content) VALUES (@room_id, @sender_id, @content);
+	SELECT SCOPE_IDENTITY()`)
 	if err != nil {
-		return err
+		return models.Message{}, err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(sql.Named("room_id", message.RoomID), sql.Named("sender_id", message.SenderID), sql.Named("content", message.Content))
+	result := stmt.QueryRow(sql.Named("room_id", message.RoomID), sql.Named("sender_id", message.SenderID), sql.Named("content", message.Content))
+
+	var id int
+	err = result.Scan(&id)
 	if err != nil {
-		return err
+		return models.Message{}, err
 	}
 
-	return nil
+	stmt, err = repo.DB.Prepare(`SELECT id, room_id, sender_id, content, created_at FROM messages WHERE id = @id`)
+	if err != nil {
+		return models.Message{}, err
+	}
+	defer stmt.Close()
+
+	result = stmt.QueryRow(sql.Named("id", id))
+	err = result.Scan(&message.ID, &message.RoomID, &message.SenderID, &message.Content, &message.CreatedAt)
+	if err != nil {
+		return models.Message{}, err
+	}
+
+	return message, nil
 }
 
 func (repo *Repository) ListMessagesByRoom(roomID, limit int, cursor string) ([]models.Message, string, error) {
