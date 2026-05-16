@@ -19,6 +19,7 @@ func (app *Application) routes() http.Handler {
 
 	mux.Handle("GET /rooms", authMiddlewares.ThenFunc(app.listRooms))
 	mux.Handle("POST /rooms", authMiddlewares.ThenFunc(app.createRoom))
+	mux.Handle("POST /rooms/{roomID}/join", authMiddlewares.ThenFunc(app.joinRoom))
 	mux.Handle("GET /rooms/{roomID}/messages", authMiddlewares.ThenFunc(app.getMessages))
 	mux.Handle("POST /rooms/{roomID}/messages", authMiddlewares.ThenFunc(app.sendMessage))
 

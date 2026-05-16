@@ -62,6 +62,26 @@ func (repo *Repository) GetUserByEmail(email string) (models.User, error) {
 	return user, nil
 }
 
+func (repo *Repository) GetUserByID(user_id int) (models.User, error) {
+	stmt, err := repo.DB.Prepare(`SELECT id, username, email, hashed_password
+	FROM users
+	WHERE id = @user_id`)
+	if err != nil {
+		return models.User{}, err
+	}
+	defer stmt.Close()
+
+	result := stmt.QueryRow(sql.Named("user_id", user_id))
+
+	user := models.User{}
+	err = result.Scan(&user.ID, &user.Username, &user.Email, &user.HashedPassword)
+	if err != nil {
+		return models.User{}, err
+	}
+
+	return user, nil
+}
+
 func (repo *Repository) CreateMessage(message models.Message) (models.Message, error) {
 	stmt, err := repo.DB.Prepare(`INSERT INTO messages (room_id, sender_id, content) VALUES (@room_id, @sender_id, @content);
 	SELECT SCOPE_IDENTITY()`)
@@ -124,7 +144,7 @@ func (repo *Repository) ListMessagesByRoom(roomID, limit int, cursor string) ([]
 	messages := []models.Message{}
 	for result.Next() {
 		message := models.Message{}
-		err := result.Scan(&message.ID, &message.RoomID, &message.SenderID, &message.Content, &message.CreatedAt)
+		err := result.Scan(&message.ID, &message.SenderID, &message.RoomID, &message.Content, &message.CreatedAt)
 		if err != nil {
 			return nil, nextCursor, err
 		}
@@ -139,19 +159,23 @@ func (repo *Repository) ListMessagesByRoom(roomID, limit int, cursor string) ([]
 	return messages, nextCursor, nil
 }
 
-func (repo *Repository) CreateRoom(room models.Room) error {
-	stmt, err := repo.DB.Prepare(`INSERT INTO rooms (name, is_private, created_by) VALUES (@name, @is_private, @created_by)`)
+func (repo *Repository) CreateRoom(room models.Room) (int, error) {
+	stmt, err := repo.DB.Prepare(`INSERT INTO rooms (name, is_private, created_by) VALUES (@name, @is_private, @created_by);
+	SELECT SCOPE_IDENTITY()`)
 	if err != nil {
-		return err
+		return -1, err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Query(sql.Named("name", room.Name), sql.Named("is_private", room.IsPrivate), sql.Named("created_by", room.CreatedBy))
+	result := stmt.QueryRow(sql.Named("name", room.Name), sql.Named("is_private", room.IsPrivate), sql.Named("created_by", room.CreatedBy))
+
+	var roomID int
+	err = result.Scan(&roomID)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
-	return nil
+	return roomID, nil
 }
 
 func (repo *Repository) ListRooms() ([]models.Room, error) {
@@ -184,4 +208,39 @@ func (repo *Repository) ListRooms() ([]models.Room, error) {
 	}
 
 	return rooms, nil
+}
+
+func (repo *Repository) AddUserToRoom(roomID int, userID int) error {
+	isInRoom, err := repo.IsUserInRoom(roomID, userID)
+	if err != nil {
+		return err
+	}
+	if isInRoom {
+		return nil
+	}
+
+	stmt, err := repo.DB.Prepare(`INSERT INTO room_members (room_id, user_id) VALUES (@room_id, @user_id)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(sql.Named("room_id", roomID), sql.Named("user_id", userID))
+	return err
+}
+
+func (repo *Repository) IsUserInRoom(roomID int, userID int) (bool, error) {
+	stmt, err := repo.DB.Prepare(`SELECT COUNT(1) FROM room_members WHERE room_id = @room_id AND user_id = @user_id`)
+	if err != nil {
+		return false, err
+	}
+	defer stmt.Close()
+
+	result := stmt.QueryRow(sql.Named("room_id", roomID), sql.Named("user_id", userID))
+	var count int
+	if err := result.Scan(&count); err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }

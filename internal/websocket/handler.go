@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ducnt2212/chat-app-backend/internal/helper"
 	"github.com/ducnt2212/chat-app-backend/internal/logger"
 	gorilla "github.com/gorilla/websocket"
 )
@@ -32,7 +33,19 @@ var upgrader = gorilla.Upgrader{
 func (handler *Handler) ServeWS(writer http.ResponseWriter, request *http.Request, userID int) {
 	roomID, err := getRoomID(request.URL.Path)
 	if err != nil {
-		http.Error(writer, "invalid room id", http.StatusBadRequest)
+		helper.ReplyJSONError(writer, http.StatusBadRequest, "Invalid Room id")
+		return
+	}
+
+	isInRoom, err := handler.messageService.IsUserInRoom(roomID, userID)
+	if err != nil {
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Internal Server Error")
+		handler.logger.Error(err.Error())
+		return
+	}
+
+	if !isInRoom {
+		helper.ReplyJSONError(writer, http.StatusForbidden, "Forbidden")
 		return
 	}
 
@@ -44,7 +57,7 @@ func (handler *Handler) ServeWS(writer http.ResponseWriter, request *http.Reques
 	client := &Client{
 		UserID:         userID,
 		RoomID:         roomID,
-		Send:           make(chan Event, 256),
+		SendChan:       make(chan Event, 256),
 		Conn:           conn,
 		Hub:            handler.Hub,
 		logger:         handler.logger,

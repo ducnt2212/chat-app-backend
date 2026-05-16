@@ -24,7 +24,7 @@ func (app *Application) panicRecover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				msg := fmt.Sprintf("panic recovered: %s - Source: %s", err, debug.Stack())
+				msg := fmt.Sprintf("Panic recovered: %s - Source: %s", err, debug.Stack())
 				app.logger.Warning(msg)
 				http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
 			}

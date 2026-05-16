@@ -117,10 +117,17 @@ func (app *Application) createRoom(writer http.ResponseWriter, request *http.Req
 		CreatedBy: userID,
 	}
 
-	err := app.repo.CreateRoom(room)
+	roomID, err := app.repo.CreateRoom(room)
 	if err != nil {
 		app.logger.Error(err.Error())
 		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in creating room")
+		return
+	}
+
+	err = app.JoinRoom(roomID, userID)
+	if err != nil {
+		app.logger.Error(err.Error())
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in adding user to room")
 		return
 	}
 
@@ -144,6 +151,28 @@ func (app *Application) listRooms(writer http.ResponseWriter, request *http.Requ
 	helper.ReplyJSON(writer, http.StatusOK, response)
 }
 
+func (app *Application) joinRoom(writer http.ResponseWriter, request *http.Request) {
+	roomID, err := strconv.Atoi(request.PathValue("roomID"))
+	if err != nil {
+		helper.ReplyJSONError(writer, http.StatusBadRequest, "Invalid Room id")
+		return
+	}
+
+	userID := request.Context().Value("user_id").(int)
+
+	err = app.JoinRoom(roomID, userID)
+	if err != nil {
+		app.logger.Error(err.Error())
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in joining room")
+		return
+	}
+
+	response := map[string]string{
+		"msg": "Joined room successfully",
+	}
+	helper.ReplyJSON(writer, http.StatusOK, response)
+}
+
 func (app *Application) sendMessage(writer http.ResponseWriter, request *http.Request) {
 	roomID, err := strconv.Atoi(request.PathValue("roomID"))
 	if err != nil {
@@ -151,6 +180,17 @@ func (app *Application) sendMessage(writer http.ResponseWriter, request *http.Re
 		return
 	}
 	userID := request.Context().Value("user_id").(int)
+
+	canAccess, err := app.UserCanAccessToRoom(roomID, userID)
+	if err != nil {
+		app.logger.Error(err.Error())
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in checking room access")
+		return
+	}
+	if !canAccess {
+		helper.ReplyJSONError(writer, http.StatusForbidden, "Forbidden")
+		return
+	}
 
 	var sendMessageForm struct {
 		Content string `json:"content"`
@@ -187,6 +227,18 @@ func (app *Application) getMessages(writer http.ResponseWriter, request *http.Re
 	roomID, err := strconv.Atoi(request.PathValue("roomID"))
 	if err != nil {
 		helper.ReplyJSONError(writer, http.StatusBadRequest, "Not Found")
+		return
+	}
+	userID := request.Context().Value("user_id").(int)
+
+	canAccess, err := app.UserCanAccessToRoom(roomID, userID)
+	if err != nil {
+		app.logger.Error(err.Error())
+		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in checking room access")
+		return
+	}
+	if !canAccess {
+		helper.ReplyJSONError(writer, http.StatusForbidden, "Forbidden")
 		return
 	}
 
@@ -232,4 +284,12 @@ func (app *Application) serveWS(writer http.ResponseWriter, request *http.Reques
 	userID, _ := request.Context().Value("user_id").(int)
 
 	app.wsHandler.ServeWS(writer, request, userID)
+}
+
+func (app *Application) JoinRoom(roomID int, userID int) error {
+	return app.repo.AddUserToRoom(roomID, userID)
+}
+
+func (app *Application) UserCanAccessToRoom(roomID int, userID int) (bool, error) {
+	return app.repo.IsUserInRoom(roomID, userID)
 }
