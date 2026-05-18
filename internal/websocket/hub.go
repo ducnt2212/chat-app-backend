@@ -63,10 +63,13 @@ func (hub *Hub) addClient(client *Client) {
 		hub.rooms[client.RoomID] = make(map[*Client]bool)
 	}
 	hub.rooms[client.RoomID][client] = true
-	hub.mu.Unlock()
 
 	hub.userConnections[client.UserID]++
-	if hub.userConnections[client.UserID] == 1 {
+	isFirstConnection := hub.userConnections[client.UserID] == 1
+
+	hub.mu.Unlock()
+
+	if isFirstConnection {
 		hub.handleBroadcast(
 			Event{
 				Type:   EventIsOnline,
@@ -97,11 +100,16 @@ func (hub *Hub) removeClient(client *Client) {
 			delete(hub.rooms, client.RoomID)
 		}
 	}
-	hub.mu.Unlock()
 
 	hub.userConnections[client.UserID]--
-	if hub.userConnections[client.UserID] <= 0 {
+	isLastConnection := hub.userConnections[client.UserID] <= 0
+	if isLastConnection {
 		delete(hub.userConnections, client.UserID)
+	}
+
+	hub.mu.Unlock()
+
+	if isLastConnection {
 		hub.handleBroadcast(
 			Event{
 				Type:   EventIsOffline,

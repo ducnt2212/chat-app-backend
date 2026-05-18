@@ -7,20 +7,25 @@ import (
 
 	"github.com/ducnt2212/chat-app-backend/internal/helper"
 	"github.com/ducnt2212/chat-app-backend/internal/logger"
+	"github.com/ducnt2212/chat-app-backend/internal/service"
 	gorilla "github.com/gorilla/websocket"
 )
 
 type Handler struct {
 	Hub            *Hub
 	logger         *logger.Logger
-	messageService MessageService
+	roomService    *service.RoomService
+	messageService *service.MessageService
+	userService    *service.UserService
 }
 
-func NewHandler(hub *Hub, logger *logger.Logger, messageService MessageService) *Handler {
+func NewHandler(hub *Hub, logger *logger.Logger, roomService *service.RoomService, messageService *service.MessageService, userService *service.UserService) *Handler {
 	return &Handler{
 		Hub:            hub,
 		logger:         logger,
+		roomService:    roomService,
 		messageService: messageService,
+		userService:    userService,
 	}
 }
 
@@ -37,14 +42,14 @@ func (handler *Handler) ServeWS(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 
-	isInRoom, err := handler.messageService.IsUserInRoom(roomID, userID)
+	canAccess, err := handler.roomService.CanAccessRoom(roomID, userID)
 	if err != nil {
 		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Internal Server Error")
 		handler.logger.Error(err.Error())
 		return
 	}
 
-	if !isInRoom {
+	if !canAccess {
 		helper.ReplyJSONError(writer, http.StatusForbidden, "Forbidden")
 		return
 	}
@@ -62,6 +67,7 @@ func (handler *Handler) ServeWS(writer http.ResponseWriter, request *http.Reques
 		Hub:            handler.Hub,
 		logger:         handler.logger,
 		messageService: handler.messageService,
+		userService:    handler.userService,
 	}
 
 	handler.Hub.Register(client)

@@ -8,7 +8,7 @@ CREATE TABLE users
     username VARCHAR(50) NOT NULL,
     email VARCHAR(50) NOT NULL UNIQUE,
     hashed_password VARCHAR(MAX) NOT NULL,
-    create_at DATETIME DEFAULT GETUTCDATE(),
+    created_at DATETIME DEFAULT GETUTCDATE(),
 );
 
 CREATE TABLE rooms

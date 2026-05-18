@@ -64,7 +64,7 @@ func (app *Application) authChecker(next http.Handler) http.Handler {
 		}
 
 		userID := int(claims["user_id"].(float64))
-		ctx := context.WithValue(request.Context(), "user_id", userID)
+		ctx := context.WithValue(request.Context(), helper.UserIDContextKey, userID)
 
 		next.ServeHTTP(writer, request.WithContext(ctx))
 	})

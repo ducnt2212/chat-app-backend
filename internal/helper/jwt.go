@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	ErrInvalidToken       = errors.New("Invalid token")
+	ErrInvalidToken       = errors.New("Invalid Token")
 	ErrInvalidTokenClaims = errors.New("Invalid Token claims")
 )
 
@@ -37,6 +37,10 @@ func VerifyJwt(tokenStr string, secret string) (jwt.MapClaims, error) {
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || claims["user_id"] == nil {
+		return nil, ErrInvalidTokenClaims
+	}
+
+	if _, ok = claims["user_id"].(float64); !ok {
 		return nil, ErrInvalidTokenClaims
 	}
 

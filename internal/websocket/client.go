@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ducnt2212/chat-app-backend/internal/logger"
-	"github.com/ducnt2212/chat-app-backend/internal/models"
+	"github.com/ducnt2212/chat-app-backend/internal/service"
 	gorilla "github.com/gorilla/websocket"
 )
 
@@ -17,13 +17,8 @@ type Client struct {
 	Conn           *gorilla.Conn
 	Hub            *Hub
 	logger         *logger.Logger
-	messageService MessageService
-}
-
-type MessageService interface {
-	CreateMessage(message models.Message) (models.Message, error)
-	GetUserByID(user_id int) (models.User, error)
-	IsUserInRoom(roomID int, userID int) (bool, error)
+	messageService *service.MessageService
+	userService    *service.UserService
 }
 
 func (client *Client) ReadPump() {
@@ -82,26 +77,13 @@ func (client *Client) handleSendMessage(event Event) {
 		return
 	}
 
-	isInRoom, err := client.messageService.IsUserInRoom(client.RoomID, client.UserID)
-	if err != nil {
-		client.logger.Error(fmt.Sprintf("Check room membership error: %v", err))
-		return
-	}
-	if !isInRoom {
-		return
-	}
-
-	message, err := client.messageService.CreateMessage(models.Message{
-		RoomID:   client.RoomID,
-		SenderID: client.UserID,
-		Content:  payload.Content,
-	})
+	message, err := client.messageService.SendMessage(client.RoomID, client.UserID, payload.Content)
 	if err != nil {
 		client.logger.Error(fmt.Sprintf("Create message error: %v", err))
 		return
 	}
 
-	user, err := client.messageService.GetUserByID(message.SenderID)
+	user, err := client.userService.GetUserByID(message.SenderID)
 	if err != nil {
 		client.logger.Error(fmt.Sprintf("Get message response error: %v", err))
 		return

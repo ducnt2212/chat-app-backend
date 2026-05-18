@@ -43,7 +43,8 @@ func (repo *Repository) CreateUser(user models.User) (int, error) {
 }
 
 func (repo *Repository) GetUserByEmail(email string) (models.User, error) {
-	stmt, err := repo.DB.Prepare(`SELECT id, username, email, hashed_password
+	stmt, err := repo.DB.Prepare(`
+	SELECT id, username, email, hashed_password
 	FROM users
 	WHERE email = @email`)
 	if err != nil {
@@ -63,7 +64,8 @@ func (repo *Repository) GetUserByEmail(email string) (models.User, error) {
 }
 
 func (repo *Repository) GetUserByID(user_id int) (models.User, error) {
-	stmt, err := repo.DB.Prepare(`SELECT id, username, email, hashed_password
+	stmt, err := repo.DB.Prepare(`
+	SELECT id, username, email, hashed_password
 	FROM users
 	WHERE id = @user_id`)
 	if err != nil {
@@ -83,7 +85,8 @@ func (repo *Repository) GetUserByID(user_id int) (models.User, error) {
 }
 
 func (repo *Repository) CreateMessage(message models.Message) (models.Message, error) {
-	stmt, err := repo.DB.Prepare(`INSERT INTO messages (room_id, sender_id, content) VALUES (@room_id, @sender_id, @content);
+	stmt, err := repo.DB.Prepare(`
+	INSERT INTO messages (room_id, sender_id, content) VALUES (@room_id, @sender_id, @content);
 	SELECT SCOPE_IDENTITY()`)
 	if err != nil {
 		return models.Message{}, err
@@ -119,12 +122,14 @@ func (repo *Repository) ListMessagesByRoom(roomID, limit int, cursor string) ([]
 	var nextCursor string = ""
 
 	if cursor == "" {
-		stmt, err = repo.DB.Prepare(`SELECT TOP (@limit) *
+		stmt, err = repo.DB.Prepare(`
+		SELECT TOP (@limit) *
 		FROM messages
 		WHERE room_id = @room_id
 		ORDER BY created_at DESC`)
 	} else {
-		stmt, err = repo.DB.Prepare(`SELECT TOP (@limit) *
+		stmt, err = repo.DB.Prepare(`
+		SELECT TOP (@limit) *
 		FROM messages
 		WHERE room_id = @room_id AND created_at < @cursor
 		ORDER BY created_at DESC`)
@@ -160,7 +165,8 @@ func (repo *Repository) ListMessagesByRoom(roomID, limit int, cursor string) ([]
 }
 
 func (repo *Repository) CreateRoom(room models.Room) (int, error) {
-	stmt, err := repo.DB.Prepare(`INSERT INTO rooms (name, is_private, created_by) VALUES (@name, @is_private, @created_by);
+	stmt, err := repo.DB.Prepare(`
+	INSERT INTO rooms (name, is_private, created_by) VALUES (@name, @is_private, @created_by);
 	SELECT SCOPE_IDENTITY()`)
 	if err != nil {
 		return -1, err
@@ -179,7 +185,8 @@ func (repo *Repository) CreateRoom(room models.Room) (int, error) {
 }
 
 func (repo *Repository) ListRooms() ([]models.Room, error) {
-	stmt, err := repo.DB.Prepare(`SELECT id, name, is_private, created_by, created_at
+	stmt, err := repo.DB.Prepare(`
+	SELECT id, name, is_private, created_by, created_at
 	FROM rooms
 	WHERE is_private = 0
 	ORDER BY created_at DESC`)

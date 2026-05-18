@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"os"
 	"strconv"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/ducnt2212/chat-app-backend/internal/helper"
 	"github.com/ducnt2212/chat-app-backend/internal/models"
+	"github.com/ducnt2212/chat-app-backend/internal/service"
 )
 
 func (app *Application) health(writer http.ResponseWriter, request *http.Request) {
@@ -44,14 +45,12 @@ func (app *Application) register(writer http.ResponseWriter, request *http.Reque
 		HashedPassword: hashedPassword,
 	}
 
-	id, err := app.repo.CreateUser(user)
+	_, err = app.userService.CreateUser(user)
 	if err != nil {
 		app.logger.Error(err.Error())
 		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in creating user")
 		return
 	}
-
-	app.logger.Info(fmt.Sprintf("Created username: %s with id: %d", registerForm.Username, id))
 
 	response := map[string]string{
 		"msg": "User created successfully",
@@ -70,7 +69,7 @@ func (app *Application) login(writer http.ResponseWriter, request *http.Request)
 		return
 	}
 
-	user, err := app.repo.GetUserByEmail(loginForm.Email)
+	user, err := app.userService.GetUserByEmail(loginForm.Email)
 	if err != nil {
 		helper.ReplyJSONError(writer, http.StatusUnauthorized, "Invalid email or password")
 		return
@@ -109,7 +108,7 @@ func (app *Application) createRoom(writer http.ResponseWriter, request *http.Req
 		return
 	}
 
-	userID := request.Context().Value("user_id").(int)
+	userID := helper.GetUserID(request)
 
 	room := models.Room{
 		Name:      createRoomForm.Name,
@@ -117,17 +116,10 @@ func (app *Application) createRoom(writer http.ResponseWriter, request *http.Req
 		CreatedBy: userID,
 	}
 
-	roomID, err := app.repo.CreateRoom(room)
+	room, err := app.roomService.CreateRoom(room, userID)
 	if err != nil {
 		app.logger.Error(err.Error())
 		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in creating room")
-		return
-	}
-
-	err = app.JoinRoom(roomID, userID)
-	if err != nil {
-		app.logger.Error(err.Error())
-		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in adding user to room")
 		return
 	}
 
@@ -138,7 +130,7 @@ func (app *Application) createRoom(writer http.ResponseWriter, request *http.Req
 }
 
 func (app *Application) listRooms(writer http.ResponseWriter, request *http.Request) {
-	rooms, err := app.repo.ListRooms()
+	rooms, err := app.roomService.ListRooms()
 	if err != nil {
 		app.logger.Error(err.Error())
 		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in listing rooms")
@@ -158,9 +150,9 @@ func (app *Application) joinRoom(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 
-	userID := request.Context().Value("user_id").(int)
+	userID := helper.GetUserID(request)
 
-	err = app.JoinRoom(roomID, userID)
+	err = app.roomService.JoinRoom(roomID, userID)
 	if err != nil {
 		app.logger.Error(err.Error())
 		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in joining room")
@@ -179,18 +171,8 @@ func (app *Application) sendMessage(writer http.ResponseWriter, request *http.Re
 		helper.ReplyJSONError(writer, http.StatusBadRequest, "Not Found")
 		return
 	}
-	userID := request.Context().Value("user_id").(int)
 
-	canAccess, err := app.UserCanAccessToRoom(roomID, userID)
-	if err != nil {
-		app.logger.Error(err.Error())
-		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in checking room access")
-		return
-	}
-	if !canAccess {
-		helper.ReplyJSONError(writer, http.StatusForbidden, "Forbidden")
-		return
-	}
+	userID := helper.GetUserID(request)
 
 	var sendMessageForm struct {
 		Content string `json:"content"`
@@ -206,14 +188,13 @@ func (app *Application) sendMessage(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	msg := models.Message{
-		RoomID:   roomID,
-		SenderID: userID,
-		Content:  sendMessageForm.Content,
-	}
-
-	_, err = app.repo.CreateMessage(msg)
+	_, err = app.messageService.SendMessage(roomID, userID, sendMessageForm.Content)
 	if err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			helper.ReplyJSONError(writer, http.StatusForbidden, "Forbidden")
+			return
+		}
+
 		app.logger.Error(err.Error())
 		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in sending message")
 		return
@@ -229,18 +210,8 @@ func (app *Application) getMessages(writer http.ResponseWriter, request *http.Re
 		helper.ReplyJSONError(writer, http.StatusBadRequest, "Not Found")
 		return
 	}
-	userID := request.Context().Value("user_id").(int)
 
-	canAccess, err := app.UserCanAccessToRoom(roomID, userID)
-	if err != nil {
-		app.logger.Error(err.Error())
-		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in checking room access")
-		return
-	}
-	if !canAccess {
-		helper.ReplyJSONError(writer, http.StatusForbidden, "Forbidden")
-		return
-	}
+	userID := helper.GetUserID(request)
 
 	var limit int
 	params := request.URL.Query()
@@ -254,20 +225,30 @@ func (app *Application) getMessages(writer http.ResponseWriter, request *http.Re
 			helper.ReplyJSONError(writer, http.StatusBadRequest, "Invalid Limit parameter")
 			return
 		}
+
+		if limit < 1 {
+			limit = 1
+		} else if limit > 30 {
+			limit = 30
+		}
 	}
 
-	cursorParam := params.Get("cursor")
-	if cursorParam != "" {
-
-		_, err = time.Parse(time.RFC3339Nano, cursorParam)
+	cursor := params.Get("cursor")
+	if cursor != "" {
+		_, err = time.Parse(time.RFC3339Nano, cursor)
 		if err != nil {
 			helper.ReplyJSONError(writer, http.StatusBadRequest, "Invalid Cursor parameter")
 			return
 		}
 	}
 
-	messages, nextCursor, err := app.repo.ListMessagesByRoom(roomID, limit, cursorParam)
+	messages, nextCursor, err := app.messageService.ListMessages(roomID, userID, limit, cursor)
 	if err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			helper.ReplyJSONError(writer, http.StatusForbidden, "Forbidden")
+			return
+		}
+
 		app.logger.Error(err.Error())
 		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in getting messages")
 		return
@@ -281,15 +262,7 @@ func (app *Application) getMessages(writer http.ResponseWriter, request *http.Re
 }
 
 func (app *Application) serveWS(writer http.ResponseWriter, request *http.Request) {
-	userID, _ := request.Context().Value("user_id").(int)
+	userID := helper.GetUserID(request)
 
 	app.wsHandler.ServeWS(writer, request, userID)
-}
-
-func (app *Application) JoinRoom(roomID int, userID int) error {
-	return app.repo.AddUserToRoom(roomID, userID)
-}
-
-func (app *Application) UserCanAccessToRoom(roomID int, userID int) (bool, error) {
-	return app.repo.IsUserInRoom(roomID, userID)
 }
