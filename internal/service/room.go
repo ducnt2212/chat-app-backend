@@ -17,17 +17,12 @@ func NewRoomService(roomRepo repository.RoomRepository, roomMembersRepo reposito
 	}
 }
 
-func (s *RoomService) CreateRoom(room models.Room, creatorID int) (models.Room, error) {
-	id, err := s.roomRepo.CreateRoom(room)
+func (s *RoomService) CreateRoom(room models.Room) (models.Room, error) {
+	room, err := s.roomRepo.CreateRoom(room)
 	if err != nil {
 		return models.Room{}, err
 	}
 
-	if err := s.roomMembersRepo.AddUserToRoom(id, creatorID); err != nil {
-		return models.Room{}, err
-	}
-
-	room.ID = id
 	return room, nil
 }
 

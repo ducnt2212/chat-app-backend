@@ -85,7 +85,7 @@ func (client *Client) handleSendMessage(event Event) {
 
 	user, err := client.userService.GetUserByID(message.SenderID)
 	if err != nil {
-		client.logger.Error(fmt.Sprintf("Get message response error: %v", err))
+		client.logger.Error(fmt.Sprintf("Get user error: %v", err))
 		return
 	}
 

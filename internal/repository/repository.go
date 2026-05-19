@@ -7,9 +7,9 @@ import (
 )
 
 type UserRepository interface {
-	CreateUser(user models.User) (int, error)
+	CreateUser(user models.User) error
 	GetUserByEmail(email string) (models.User, error)
-	GetUserByID(user_id int) (models.User, error)
+	GetUserByID(userID int) (models.User, error)
 }
 
 type MessageRepository interface {
@@ -18,7 +18,7 @@ type MessageRepository interface {
 }
 
 type RoomRepository interface {
-	CreateRoom(room models.Room) (int, error)
+	CreateRoom(room models.Room) (models.Room, error)
 	ListRooms() ([]models.Room, error)
 }
 

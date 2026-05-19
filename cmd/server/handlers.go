@@ -45,7 +45,7 @@ func (app *Application) register(writer http.ResponseWriter, request *http.Reque
 		HashedPassword: hashedPassword,
 	}
 
-	_, err = app.userService.CreateUser(user)
+	err = app.userService.CreateUser(user)
 	if err != nil {
 		app.logger.Error(err.Error())
 		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in creating user")
@@ -116,7 +116,7 @@ func (app *Application) createRoom(writer http.ResponseWriter, request *http.Req
 		CreatedBy: userID,
 	}
 
-	room, err := app.roomService.CreateRoom(room, userID)
+	room, err := app.roomService.CreateRoom(room)
 	if err != nil {
 		app.logger.Error(err.Error())
 		helper.ReplyJSONError(writer, http.StatusInternalServerError, "Server error in creating room")

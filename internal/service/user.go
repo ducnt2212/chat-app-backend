@@ -23,6 +23,6 @@ func (s *UserService) GetUserByEmail(email string) (models.User, error) {
 	return s.userRepo.GetUserByEmail(email)
 }
 
-func (s *UserService) CreateUser(user models.User) (int, error) {
+func (s *UserService) CreateUser(user models.User) error {
 	return s.userRepo.CreateUser(user)
 }
